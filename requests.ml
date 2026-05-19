@@ -5,7 +5,7 @@ let token =
 
 let dados =
   Uri.encoded_of_query [
-    ("chat_id", ["8735206230"]);
+    ("chat_id", ["x"]);
     ("text", ["Olá! Me chamo ART. Digite um CPF válido para que eu possa fazer a verificação."])
   ]
 
@@ -24,6 +24,6 @@ let () =
       ~body
       (Uri.of_string
         (Printf.sprintf
-          "https://api.telegram.org/bot%s/sendMessage"
+          "api para mandar mensagem."
           token))
   )
