@@ -3,10 +3,15 @@ let token =
   | Some t -> t
   | None -> failwith "Token não encontrado"
 
+let chat_id = "x"
+
+let mensagem =
+  "Olá! Me chamo ART. Digite um CPF válido para que eu possa fazer a verificação."
+
 let dados =
   Uri.encoded_of_query [
-    ("chat_id", ["x"]);
-    ("text", ["Olá! Me chamo ART. Digite um CPF válido para que eu possa fazer a verificação."])
+    ("chat_id", [chat_id]);
+    ("text", [mensagem])
   ]
 
 let body =
@@ -17,13 +22,17 @@ let headers =
     "Content-Type"
     "application/x-www-form-urlencoded"
 
+let url =
+  Printf.sprintf
+    "https://api.telegram.org/bot%s/sendMessage"
+    token
+
 let () =
   Lwt_main.run (
+
     Cohttp_lwt_unix.Client.post
       ~headers
       ~body
-      (Uri.of_string
-        (Printf.sprintf
-          "api para mandar mensagem."
-          token))
+      (Uri.of_string url)
+
   )
