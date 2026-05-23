@@ -1,0 +1,8 @@
+(executable
+ (name principal)
+ (modules principal)
+ (libraries
+  cohttp-lwt-unix
+  yojson
+  dotenv
+  lwt))
