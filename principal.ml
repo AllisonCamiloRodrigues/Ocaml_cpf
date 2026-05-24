@@ -1,16 +1,22 @@
-(* Biblioteca para carregar variáveis do .env *)
-open Dotenv
+(* ===================================================== *)
+(* PESSOA 1 — CONFIGURAÇÃO DO SISTEMA *)
+(* RESPONSÁVEL: ANNA *)
+(* ===================================================== *)
+
+(* Biblioteca para programação assíncrona *)
+open Lwt.Syntax
 
 (* Carrega o arquivo .env *)
-let () = Dotenv.export ()
+let () =
+  Dotenv.export ();
+
+  print_endline "Arquivo .env carregado!"
 
 (* Pega o TOKEN do Telegram *)
 let telegram_token =
-  try Sys.getenv "TELEGRAM_TOKEN"
-  with Not_found ->
-    failwith "TOKEN não encontrado no arquivo .env"
-
-(* Exibe mensagem de confirmação *)
-let () =
-  print_endline "Sistema configurado com sucesso!";
-  print_endline ("TOKEN carregado: " ^ telegram_token)
+  match Sys.getenv_opt "TELEGRAM_TOKEN" with
+  | Some token ->
+      print_endline "TOKEN encontrado!";
+      token
+  | None ->
+      failwith "TOKEN nao encontrado!"
