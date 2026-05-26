@@ -30,3 +30,107 @@ let url =
   "https://api.telegram.org/bot"
   ^ telegram_token
   ^ "/getUpdates"
+
+(* ===================================================== *)
+(* PESSOA 3 — MANIPULAÇÃO DO JSON *)
+(* RESPONSÁVEL: ALLISON *)
+(* ===================================================== *)
+
+(* Biblioteca para manipular JSON *)
+open Yojson.Basic.Util
+
+(* Função para interpretar resposta da API *)
+let mostrar_mensagem resposta =
+
+  print_endline "Convertendo resposta para JSON...";
+
+  (* Converte resposta em JSON *)
+  let json =
+    Yojson.Basic.from_string resposta
+  in
+
+  print_endline "JSON convertido com sucesso!";
+
+  (* Pega lista de mensagens *)
+  let resultados =
+    json
+    |> member "result"
+    |> to_list
+  in
+
+  (* Verifica se existem mensagens *)
+  if resultados = [] then
+
+    print_endline "Nenhuma mensagem encontrada."
+
+  else
+
+    (* Pega última mensagem *)
+    let ultima_mensagem =
+      List.hd (List.rev resultados)
+    in
+
+    print_endline "Última mensagem encontrada!";
+
+    (* Pega texto enviado *)
+    let texto =
+      ultima_mensagem
+      |> member "message"
+      |> member "text"
+      |> to_string
+    in
+
+    (* Pega chat_id *)
+    let chat_id =
+      ultima_mensagem
+      |> member "message"
+      |> member "chat"
+      |> member "id"
+      |> to_int
+    in
+
+    (* Mostra informações no terminal *)
+    print_endline "---------------------------";
+
+    print_endline ("Mensagem recebida: " ^ texto);
+
+    print_endline
+      ("Chat ID: " ^ string_of_int chat_id);
+
+    print_endline "---------------------------"
+
+
+
+(* ===================================================== *)
+(* EXECUÇÃO PRINCIPAL *)
+(* ===================================================== *)
+
+let () =
+
+  print_endline "Iniciando requisicao...";
+  print_endline ("URL usada: " ^ url);
+
+  Lwt_main.run (
+
+    (* Faz GET na API *)
+    let* (_, body) =
+      Cohttp_lwt_unix.Client.get
+        (Uri.of_string url)
+    in
+
+    print_endline "Resposta recebida!";
+
+    (* Converte resposta para texto *)
+    let* resposta =
+      Cohttp_lwt.Body.to_string body
+    in
+
+    (* Mostra JSON bruto *)
+    print_endline "JSON recebido:";
+    print_endline resposta;
+
+    (* Chama sua função de manipulação JSON *)
+    mostrar_mensagem resposta;
+
+    Lwt.return_unit
+  )
