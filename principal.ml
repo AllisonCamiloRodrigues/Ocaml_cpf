@@ -20,3 +20,13 @@ let telegram_token =
       token
   | None ->
       failwith "TOKEN nao encontrado!"
+(* ===================================================== *)
+(* PESSOA 2 â€” RECEBER MENSAGENS DA API *)
+(* RESPONSÃVEL: RAYANNE *)
+(* ===================================================== *)
+
+(* Monta URL da API *)
+let url =
+  "https://api.telegram.org/bot"
+  ^ telegram_token
+  ^ "/getUpdates"
