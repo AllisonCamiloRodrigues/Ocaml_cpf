@@ -20,9 +20,11 @@ let telegram_token =
       token
   | None ->
       failwith "TOKEN nao encontrado!"
+
+
 (* ===================================================== *)
-(* PESSOA 2 â€” RECEBER MENSAGENS DA API *)
-(* RESPONSÃVEL: RAYANNE *)
+(* PESSOA 2 — RECEBER MENSAGENS DA API *)
+(* RESPONSÁVEL: RAYANNE *)
 (* ===================================================== *)
 
 (* Monta URL da API *)
@@ -30,6 +32,7 @@ let url =
   "https://api.telegram.org/bot"
   ^ telegram_token
   ^ "/getUpdates"
+
 
 (* ===================================================== *)
 (* PESSOA 3 — MANIPULAÇÃO DO JSON *)
@@ -97,8 +100,53 @@ let mostrar_mensagem resposta =
     print_endline
       ("Chat ID: " ^ string_of_int chat_id);
 
-    print_endline "---------------------------"
+    print_endline "---------------------------";
 
+
+    (* ===================================================== *)
+    (* RESPONSÁVEL CÓDIGO: TITO SOUZA*)
+    (* ===================================================== *)
+
+    let mensagem_envio =
+      "Olá! Me chamo ART. Digite um CPF válido para que eu possa fazer a verificação."
+    in
+
+    let dados_envio =
+      Uri.encoded_of_query [
+        ("chat_id", [string_of_int chat_id]);
+        ("text", [mensagem_envio])
+      ]
+    in
+
+    let body_envio =
+      Cohttp_lwt.Body.of_string dados_envio
+    in
+
+    let headers_envio =
+      Cohttp.Header.init_with
+        "Content-Type"
+        "application/x-www-form-urlencoded"
+    in
+
+    let url_envio =
+      Printf.sprintf
+      "https://api.telegram.org/bot%s/sendMessage"
+      telegram_token
+    in
+
+    Lwt.async (fun () ->
+
+  let* _ =
+    Cohttp_lwt_unix.Client.post
+      ~headers:headers_envio
+      ~body:body_envio
+      (Uri.of_string url_envio)
+  in
+
+  print_endline "Mensagem enviada!";
+
+  Lwt.return_unit
+)
 
 
 (* ===================================================== *)
