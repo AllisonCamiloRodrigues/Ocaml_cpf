@@ -3,16 +3,15 @@
 (* RESPONSÁVEL: ANNA *)
 (* ===================================================== *)
 
-(* Biblioteca para programação assíncrona *)
 open Lwt.Syntax
 
-(* Carrega o arquivo .env *)
+(* Carrega variáveis do arquivo .env *)
 let () =
   Dotenv.export ();
 
   print_endline "Arquivo .env carregado!"
 
-(* Pega o TOKEN do Telegram *)
+(* Busca TOKEN do Telegram *)
 let telegram_token =
   match Sys.getenv_opt "TELEGRAM_TOKEN" with
   | Some token ->
@@ -23,162 +22,249 @@ let telegram_token =
 
 
 (* ===================================================== *)
-(* PESSOA 2 — RECEBER MENSAGENS DA API *)
+(* PESSOA 2 — RECEBER MENSAGENS DO TELEGRAM *)
 (* RESPONSÁVEL: RAYANNE *)
 (* ===================================================== *)
 
-(* Monta URL da API *)
-let url =
+open Yojson.Basic.Util
+
+(* Monta URL do getUpdates *)
+let get_updates_url ultimo_update =
+
   "https://api.telegram.org/bot"
   ^ telegram_token
-  ^ "/getUpdates"
+  ^ "/getUpdates?offset="
+  ^ string_of_int ultimo_update
 
 
 (* ===================================================== *)
-(* PESSOA 3 — MANIPULAÇÃO DO JSON *)
+(* PESSOA 3 — MANIPULAÇÃO DO JSON E VALIDAÇÃO CPF *)
 (* RESPONSÁVEL: ALLISON *)
 (* ===================================================== *)
 
-(* Biblioteca para manipular JSON *)
-open Yojson.Basic.Util
+(* Remove tudo que nao for numero *)
+let limpar_cpf cpf =
 
-(* Função para interpretar resposta da API *)
-let mostrar_mensagem resposta =
+  cpf
+  |> String.to_seq
+  |> List.of_seq
+  |> List.filter (fun c -> c >= '0' && c <= '9')
+  |> List.to_seq
+  |> String.of_seq
 
-  print_endline "Convertendo resposta para JSON...";
 
-  (* Converte resposta em JSON *)
+(* Verifica se todos os caracteres sao iguais *)
+let cpf_repetido cpf =
+
+  cpf = "00000000000"
+  || cpf = "11111111111"
+  || cpf = "22222222222"
+  || cpf = "33333333333"
+  || cpf = "44444444444"
+  || cpf = "55555555555"
+  || cpf = "66666666666"
+  || cpf = "77777777777"
+  || cpf = "88888888888"
+  || cpf = "99999999999"
+
+
+(* Validação simples *)
+let validar_cpf cpf =
+
+  let cpf_limpo =
+    limpar_cpf cpf
+  in
+
+  if String.length cpf_limpo <> 11 then
+    false
+
+  else if cpf_repetido cpf_limpo then
+    false
+
+  else
+    true
+
+
+(* ===================================================== *)
+(* PESSOA 4 — ENVIAR MENSAGENS *)
+(* RESPONSÁVEL: TITO *)
+(* ===================================================== *)
+
+let enviar_resposta chat_id texto =
+
+  let url =
+    "https://api.telegram.org/bot"
+    ^ telegram_token
+    ^ "/sendMessage"
+  in
+
+  let parametros =
+    [
+      ("chat_id", [string_of_int chat_id]);
+      ("text", [texto])
+    ]
+  in
+
+  let headers =
+    Cohttp.Header.init_with
+      "Content-Type"
+      "application/x-www-form-urlencoded"
+  in
+
+  let body =
+    Cohttp_lwt.Body.of_form parametros
+  in
+
+  Cohttp_lwt_unix.Client.post
+    ~headers
+    ~body
+    (Uri.of_string url)
+
+
+(* ===================================================== *)
+(* LOOP PRINCIPAL *)
+(* ===================================================== *)
+
+let rec loop ultimo_update =
+
+  let url =
+    get_updates_url ultimo_update
+  in
+
+  let* (_, body) =
+    Cohttp_lwt_unix.Client.get
+      (Uri.of_string url)
+  in
+
+  let* resposta =
+    Cohttp_lwt.Body.to_string body
+  in
+
   let json =
     Yojson.Basic.from_string resposta
   in
 
-  print_endline "JSON convertido com sucesso!";
-
-  (* Pega lista de mensagens *)
-  let resultados =
-    json
-    |> member "result"
-    |> to_list
+  (* Verifica se "result" existe *)
+  let resultados_json =
+    json |> member "result"
   in
 
-  (* Verifica se existem mensagens *)
-  if resultados = [] then
+  match resultados_json with
 
-    print_endline "Nenhuma mensagem encontrada."
+  | `Null ->
 
-  else
+      let* () =
+        Lwt_unix.sleep 2.0
+      in
 
-    (* Pega última mensagem *)
-    let ultima_mensagem =
-      List.hd (List.rev resultados)
-    in
+      loop ultimo_update
 
-    print_endline "Última mensagem encontrada!";
+  | _ ->
 
-    (* Pega texto enviado *)
-    let texto =
-      ultima_mensagem
-      |> member "message"
-      |> member "text"
-      |> to_string
-    in
+      let resultados =
+        resultados_json |> to_list
+      in
 
-    (* Pega chat_id *)
-    let chat_id =
-      ultima_mensagem
-      |> member "message"
-      |> member "chat"
-      |> member "id"
-      |> to_int
-    in
+      match resultados with
 
-    (* Mostra informações no terminal *)
-    print_endline "---------------------------";
+      | [] ->
 
-    print_endline ("Mensagem recebida: " ^ texto);
+          let* () =
+            Lwt_unix.sleep 2.0
+          in
 
-    print_endline
-      ("Chat ID: " ^ string_of_int chat_id);
+          loop ultimo_update
 
-    print_endline "---------------------------";
+      | _ ->
 
+          let ultima =
+            List.hd (List.rev resultados)
+          in
 
-    (* ===================================================== *)
-    (* RESPONSÁVEL CÓDIGO: TITO SOUZA*)
-    (* ===================================================== *)
+          let update_id =
+            ultima
+            |> member "update_id"
+            |> to_int
+          in
 
-    let mensagem_envio =
-      "Olá! Me chamo ART. Digite um CPF válido para que eu possa fazer a verificação."
-    in
+          let texto =
+            ultima
+            |> member "message"
+            |> member "text"
+            |> to_string
+          in
 
-    let dados_envio =
-      Uri.encoded_of_query [
-        ("chat_id", [string_of_int chat_id]);
-        ("text", [mensagem_envio])
-      ]
-    in
+          let chat_id =
+            ultima
+            |> member "message"
+            |> member "chat"
+            |> member "id"
+            |> to_int
+          in
 
-    let body_envio =
-      Cohttp_lwt.Body.of_string dados_envio
-    in
+          print_endline "======================";
+          print_endline ("Mensagem recebida: " ^ texto);
 
-    let headers_envio =
-      Cohttp.Header.init_with
-        "Content-Type"
-        "application/x-www-form-urlencoded"
-    in
+          let cpf_limpo =
+            limpar_cpf texto
+          in
 
-    let url_envio =
-      Printf.sprintf
-      "https://api.telegram.org/bot%s/sendMessage"
-      telegram_token
-    in
+          (* Responde apenas se tiver 11 numeros *)
+          if String.length cpf_limpo = 11 then (
 
-    Lwt.async (fun () ->
+            let resposta_bot =
 
-  let* _ =
-    Cohttp_lwt_unix.Client.post
-      ~headers:headers_envio
-      ~body:body_envio
-      (Uri.of_string url_envio)
-  in
+              if validar_cpf texto then
+                "CPF valido!"
+              else
+                "CPF invalido!"
 
-  print_endline "Mensagem enviada!";
+            in
 
-  Lwt.return_unit
-)
+            print_endline ("Resposta do bot: " ^ resposta_bot);
+
+            let* (_, body_resposta) =
+              enviar_resposta chat_id resposta_bot
+            in
+
+            let* resposta_api =
+              Cohttp_lwt.Body.to_string body_resposta
+            in
+
+            print_endline "Resposta da API:";
+            print_endline resposta_api;
+
+            print_endline "Mensagem enviada!";
+
+            let* () =
+              Lwt_unix.sleep 2.0
+            in
+
+            loop (update_id + 1)
+
+          ) else (
+
+            print_endline "Mensagem ignorada.";
+
+            let* () =
+              Lwt_unix.sleep 2.0
+            in
+
+            loop (update_id + 1)
+
+          )
 
 
 (* ===================================================== *)
-(* EXECUÇÃO PRINCIPAL *)
+(* INICIAR BOT *)
 (* ===================================================== *)
 
 let () =
 
-  print_endline "Iniciando requisicao...";
-  print_endline ("URL usada: " ^ url);
+  print_endline "======================";
+  print_endline "BOT INICIADO...";
+  print_endline "======================";
 
   Lwt_main.run (
-
-    (* Faz GET na API *)
-    let* (_, body) =
-      Cohttp_lwt_unix.Client.get
-        (Uri.of_string url)
-    in
-
-    print_endline "Resposta recebida!";
-
-    (* Converte resposta para texto *)
-    let* resposta =
-      Cohttp_lwt.Body.to_string body
-    in
-
-    (* Mostra JSON bruto *)
-    print_endline "JSON recebido:";
-    print_endline resposta;
-
-    (* Chama sua função de manipulação JSON *)
-    mostrar_mensagem resposta;
-
-    Lwt.return_unit
+    loop 0
   )
