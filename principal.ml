@@ -68,7 +68,39 @@ let cpf_repetido cpf =
   || cpf = "99999999999"
 
 
-(* Validação simples *)
+(* Converte caractere para inteiro *)
+let char_para_int c =
+
+  (Char.code c) - (Char.code '0')
+
+
+(* Calcula digito verificador *)
+let calcular_digito cpf tamanho =
+
+  let soma = ref 0 in
+
+  for i = 0 to tamanho - 1 do
+
+    let numero =
+      char_para_int cpf.[i]
+    in
+
+    soma :=
+      !soma + (numero * (tamanho + 1 - i))
+
+  done;
+
+  let resto =
+    (!soma * 10) mod 11
+  in
+
+  if resto = 10 then
+    0
+  else
+    resto
+
+
+(* Validação completa do CPF *)
 let validar_cpf cpf =
 
   let cpf_limpo =
@@ -81,8 +113,28 @@ let validar_cpf cpf =
   else if cpf_repetido cpf_limpo then
     false
 
-  else
-    true
+  else (
+
+    let digito1 =
+      calcular_digito cpf_limpo 9
+    in
+
+    let digito2 =
+      calcular_digito cpf_limpo 10
+    in
+
+    let digito1_original =
+      char_para_int cpf_limpo.[9]
+    in
+
+    let digito2_original =
+      char_para_int cpf_limpo.[10]
+    in
+
+    digito1 = digito1_original
+    &&
+    digito2 = digito2_original
+  )
 
 
 (* ===================================================== *)
